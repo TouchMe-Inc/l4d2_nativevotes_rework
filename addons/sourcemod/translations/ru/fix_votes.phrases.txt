@@ -1,0 +1,18 @@
+"Phrases"
+{
+	"TAG"
+	{
+		"ru"			"<{green}Fix Votes{default}> "
+	}
+
+	"VOTE_COULDOWN"
+	{
+		"#format"		"{1:d}"
+		"ru"			"В данный момент невозможно объявить голосование. Повторите попытку через {olive}{1}{default} сек"
+	}
+
+	"VOTE_IN_PROGRESS"
+	{
+		"ru"			"Похоже, сейчас идет активное голосование"
+	}
+}
