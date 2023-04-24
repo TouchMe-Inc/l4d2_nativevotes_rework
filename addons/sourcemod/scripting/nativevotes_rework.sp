@@ -70,7 +70,14 @@ public Plugin myinfo = {
 #define IS_VALID_CLIENT(%1)     (%1 > 0 && %1 <= MaxClients)
 
 
-enum struct VoteInfo {
+enum VoteTranslation
+{
+	VoteTranslation_Display = 0,	/**< Voting was cancelled */
+	VoteTranslation_Pass			/**< Voting finished */
+}
+
+enum struct VoteInfo
+{
 	int controller;
 	NativeVote hndl;
 	Handle timeout;
@@ -441,15 +448,13 @@ public int Native_GetTarget(Handle hPlugin, int iParams)
 		return 0;
 	}
 
-	int target = Data_GetTarget(hVote);
+	int iTarget = Data_GetTarget(hVote);
 
-	if (target == 0)
-	{
-		// No target was set, return -1
+	if (!iTarget) {
 		return -1;
 	}
 
-	return GetClientOfUserId(target);
+	return GetClientOfUserId(iTarget);
 }
 
 // native void NativeVotes_SetTarget(Handle hVote, int iClient);
