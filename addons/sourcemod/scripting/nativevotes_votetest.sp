@@ -30,18 +30,31 @@ public Action Cmd_TestYesNo(int iClient, int args)
 		return Plugin_Handled;
 	}
 
-	NativeVote hVote = new NativeVote(YesNoCustomHandler, NativeVotesType_Custom_YesNo);
+	NativeVote hVote = new NativeVote(HandlerCustomYesNo, NativeVotesType_Custom_YesNo);
 
 	hVote.Initiator = iClient;
 	hVote.SetDetails("My old details");
-	hVote.DisplayVoteToAll(20);
+
+	int iTotalPlayers;
+	int[] iPlayers = new int[MaxClients];
+
+	for (int iPlayer = 1; iPlayer <= MaxClients; iPlayer++)
+	{
+		if (!IsClientInGame(iPlayer) || IsFakeClient(iPlayer)) {
+			continue;
+		}
+
+		iPlayers[iTotalPlayers++] = iPlayer;
+	}
+
+	hVote.DisplayVote(iPlayers, iTotalPlayers, 20);
 
 	return Plugin_Handled;
 }
 
-public Action YesNoCustomHandler(NativeVote hVote, VoteAction action, int iParam1, int iParam2)
+public Action HandlerCustomYesNo(NativeVote hVote, VoteAction iAction, int iParam1, int iParam2)
 {
-	switch (action)
+	switch (iAction)
 	{
 		case VoteAction_Start: {
 			PrintToChatAll("Voting has begun by %N", iParam1);
