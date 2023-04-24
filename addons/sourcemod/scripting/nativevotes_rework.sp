@@ -4,14 +4,14 @@
 #include <sourcemod>
 #include <sdktools>
 
-#include "include/nativevotes_rework.inc"
+#include "include/nativevotes_rework"
 
 
 public Plugin myinfo = {
 	name = "NativeVotesRework",
 	author = "Powerlord, TouchMe",
 	description = "Voting API to use the game's native vote panels",
-	version = "build_0001",
+	version = "build_0002",
 	url = "https://github.com/TouchMe-Inc/l4d2_nativevotes_rework"
 }
 
@@ -59,7 +59,7 @@ public Plugin myinfo = {
 #define VALID_ISSUE             1
 
 // Vote info
-#define VOTE_DETAILS_LENGTH     64
+#define VOTE_DETAILS_LENGTH     128
 #define TRANSLATION_LENGTH      192
 
 // Client info
@@ -110,7 +110,6 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	CreateNative("NativeVotes_GetTarget", Native_GetTarget);
 	CreateNative("NativeVotes_DisplayVote", Native_DisplayVote);
 	CreateNative("NativeVotes_DisplayPass", Native_DisplayPass);
-	CreateNative("NativeVotes_DisplayPassCustomToOne", Native_DisplayPassCustomToOne);
 	CreateNative("NativeVotes_DisplayFail", Native_DisplayFail);
 	CreateNative("NativeVotes_GetType", Native_GetType);
 	CreateNative("NativeVotes_SetTeam", Native_SetTeam);
@@ -133,7 +132,6 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	CreateNative("NativeVote.GetTarget", Native_GetTarget);
 	CreateNative("NativeVote.DisplayVote", Native_DisplayVote);
 	CreateNative("NativeVote.DisplayPass", Native_DisplayPass);
-	CreateNative("NativeVote.DisplayPassCustomToOne", Native_DisplayPassCustomToOne);
 	CreateNative("NativeVote.DisplayFail", Native_DisplayFail);
 	CreateNative("NativeVote.VoteType.get", Native_GetType);
 	CreateNative("NativeVote.Team.set", Native_SetTeam);
@@ -211,13 +209,13 @@ public int Native_DisplayVote(Handle hPlugin, int iParams)
 		ThrowNativeError(SP_ERROR_NATIVE, "NativeVotes handle %x is invalid", hVote);
 	}
 
-	int iCount = GetNativeCell(3);
-	int[] iClients = new int[iCount];
-	GetNativeArray(2, iClients, iCount);
+	int iTotalPlayers = GetNativeCell(3);
+	int[] iPlayers = new int[iTotalPlayers];
+	GetNativeArray(2, iPlayers, iTotalPlayers);
 
 	int iShowTime = GetNativeCell(4);
 
-	return DisplayVote(hVote, iClients, iCount, iShowTime);
+	return DisplayVote(hVote, iPlayers, iTotalPlayers, iShowTime);
 	
 }
 
@@ -377,49 +375,36 @@ public int Native_DisplayPass(Handle hPlugin, int iParams)
 		ThrowNativeError(SP_ERROR_NATIVE, "NativeVotes handle %x is invalid", hVote);
 	}
 
-	NativeVotesPassType hPassType = VoteTypeToVotePass(Data_GetType(hVote));
+	NativeVotesType hVoteType = Data_GetType(hVote);
+
+	char sTranslation[TRANSLATION_LENGTH];
+	VoteTypeToTranslation(hVoteType, VoteTranslation_Pass, sTranslation, sizeof(sTranslation));
+
+	char sDetails[VOTE_DETAILS_LENGTH];
+	bool bDetailsChanged = VoteTypeToDetails(hVoteType, sDetails, sizeof(sDetails));
 
 	int iTeam = Data_GetTeam(hVote);
 
-	char sTranslation[TRANSLATION_LENGTH];
-	VotePassTypeToTranslation(hPassType, sTranslation, sizeof(sTranslation));
-
-	if (hPassType == NativeVotesPass_AlltalkOn) {
-		SendVotePass(sTranslation, L4D2_VOTE_ALLTALK_ENABLE, iTeam);
-	} else if (hPassType == NativeVotesPass_AlltalkOff) {
-		SendVotePass(sTranslation, L4D2_VOTE_ALLTALK_DISABLE, iTeam);
-	} 
-
-	else 
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
-		char sDetails[VOTE_DETAILS_LENGTH];
-		if (iParams >= 2) {
+		if (!IsClientInGame(iClient) || IsFakeClient(iClient)) {
+			continue;
+		}
+
+		if (!bDetailsChanged)
+		{
+			SetGlobalTransTarget(iClient);
 			FormatNativeString(0, 2, 3, sizeof(sDetails), _, sDetails);
 		}
 
-		SendVotePass(sTranslation, sDetails, iTeam);
+		if (strlen(sDetails)) { // fix %s1
+			SendVotePass(iClient, iTeam, sTranslation, sDetails);
+		}
+
+		 else {
+			SendVotePass(iClient, iTeam);
+		}
 	}
-
-	return 0;
-}
-
-// native void NativeVotes_DisplayPassCustomToOne(Handle hVote, int iClient, const char[] fmt="", any ...);
-public int Native_DisplayPassCustomToOne(Handle hPlugin, int iParams)
-{
-	NativeVote hVote = GetNativeCell(1);
-	if (hVote == null) {
-		ThrowNativeError(SP_ERROR_NATIVE, "NativeVotes handle %x is invalid", hVote);
-	}
-
-	int iClient = GetNativeCell(2);
-
-	char sDetails[VOTE_DETAILS_LENGTH];
-
-	SetGlobalTransTarget(iClient);
-	FormatNativeString(0, 3, 4, sizeof(sDetails), _, sDetails);
-
-	int iTeam = Data_GetTeam(hVote);
-	SendVotePass(L4D_VOTE_CUSTOM, sDetails, iTeam, iClient);
 
 	return 0;
 }
@@ -434,19 +419,14 @@ public int Native_DisplayFail(Handle hPlugin, int iParams)
 
 	int iTeam = Data_GetTeam(hVote);
 
-	int iTotalPlayers = 0;
-	int[] iPlayers = new int[MaxClients];
-
 	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		if (!IsClientInGame(iClient) || IsFakeClient(iClient)) {
 			continue;
 		}
 
-		iPlayers[iTotalPlayers++] = iClient;
+		SendVoteFail(iClient, iTeam);
 	}
-
-	SendVoteFail(iPlayers, iTotalPlayers, iTeam);
 
 	return 0;
 }
@@ -643,7 +623,7 @@ bool DisplayVote(NativeVote hVote, int[] iClients, int iCountClients, int iShowT
 
 	// Translation
 	char sTranslation[TRANSLATION_LENGTH];
-	VoteTypeToTranslation(hVoteType, sTranslation, sizeof(sTranslation));
+	VoteTypeToTranslation(hVoteType, VoteTranslation_Display, sTranslation, sizeof(sTranslation));
 
 	// Details
 	char sDetails[VOTE_DETAILS_LENGTH];
@@ -672,7 +652,7 @@ bool DisplayVote(NativeVote hVote, int[] iClients, int iCountClients, int iShowT
 			Data_GetDetails(hVote, sDetails, sizeof(sDetails));
 		}
 
-		SendClientVoteStart(iClient, sTranslation, sDetails, iTeam, iInitiator, sInitiatorName);
+		SendClientVoteStart(iClient, iTeam, sTranslation, sDetails, iInitiator, sInitiatorName);
 	}
 
 	// Kick targets automatically vote no if they're in the pool
@@ -802,7 +782,7 @@ void SendClientSelectedItem(int iClient, int iItem)
 	EndMessage();
 }
 
-void SendClientVoteStart(int iClient, const char[] sTranslation, const char[] sDetails, int iTeam, int iInitiator, const char[] sInitiatorName)
+void SendClientVoteStart(int iClient, int iTeam, const char[] sTranslation, const char[] sDetails,  int iInitiator, const char[] sInitiatorName)
 {
 	BfWrite hVoteStart = UserMessageToBfWrite(StartMessageOne("VoteStart", iClient, USERMSG_RELIABLE));
 	hVoteStart.WriteByte(iTeam);
@@ -813,21 +793,19 @@ void SendClientVoteStart(int iClient, const char[] sTranslation, const char[] sD
 	EndMessage();
 }
 
-void SendVotePass(const char[] sTranslation, const char[] sDetails, int iTeam, int iClient = 0)
+void SendVotePass(int iClient, int iTeam, const char[] sTranslation = "", const char[] sDetails = "")
 {
-	BfWrite bfVotePass = UserMessageToBfWrite(
-		!iClient ? StartMessageAll("VotePass", USERMSG_RELIABLE) : StartMessageOne("VotePass", iClient, USERMSG_RELIABLE)
-	);
+	BfWrite bfVotePass = UserMessageToBfWrite(StartMessageOne("VotePass", iClient, USERMSG_RELIABLE));
 	bfVotePass.WriteByte(iTeam);
 	bfVotePass.WriteString(sTranslation);
 	bfVotePass.WriteString(sDetails);
 	EndMessage();
 }
 
-void SendVoteFail(int[] iClients, int iCountClients, int team)
+void SendVoteFail(int iClient, int iTeam)
 {
-	BfWrite bfVoteFailed = UserMessageToBfWrite(StartMessage("VoteFail", iClients, iCountClients, USERMSG_RELIABLE));
-	bfVoteFailed.WriteByte(team);
+	BfWrite bfVoteFailed = UserMessageToBfWrite(StartMessageOne("VoteFail", iClient, USERMSG_RELIABLE));
+	bfVoteFailed.WriteByte(iTeam);
 	EndMessage();
 }
 
@@ -963,36 +941,36 @@ void Data_CloseVote(KeyValues hVote)
 
 // votes type
 
-void VoteTypeToTranslation(NativeVotesType hVoteType, char[] sTranslation, int iLength)
+void VoteTypeToTranslation(NativeVotesType hVoteType, VoteTranslation eTranslation,  char[] sTranslation, int iLength)
 {
 	switch(hVoteType)
 	{
 		case NativeVotesType_ChgCampaign: {
-			strcopy(sTranslation, iLength, L4D_VOTE_CHANGECAMPAIGN_START);
+			strcopy(sTranslation, iLength, eTranslation == VoteTranslation_Display ? L4D_VOTE_CHANGECAMPAIGN_START : L4D_VOTE_CHANGECAMPAIGN_PASSED);
 		}
 
 		case NativeVotesType_ChgDifficulty: {
-			strcopy(sTranslation, iLength, L4D_VOTE_CHANGEDIFFICULTY_START);
+			strcopy(sTranslation, iLength, eTranslation == VoteTranslation_Display ? L4D_VOTE_CHANGEDIFFICULTY_START : L4D_VOTE_CHANGEDIFFICULTY_PASSED);
 		}
 
 		case NativeVotesType_ReturnToLobby: {
-			strcopy(sTranslation, iLength, L4D_VOTE_RETURNTOLOBBY_START);
+			strcopy(sTranslation, iLength, eTranslation == VoteTranslation_Display ? L4D_VOTE_RETURNTOLOBBY_START : L4D_VOTE_RETURNTOLOBBY_PASSED);
 		}
 
 		case NativeVotesType_AlltalkOn, NativeVotesType_AlltalkOff: {
-			strcopy(sTranslation, iLength, L4D2_VOTE_ALLTALK_START);
+			strcopy(sTranslation, iLength, eTranslation == VoteTranslation_Display ? L4D2_VOTE_ALLTALK_START : L4D2_VOTE_ALLTALK_PASSED);
 		}
 
 		case NativeVotesType_Restart: {
-			strcopy(sTranslation, iLength, L4D_VOTE_RESTART_START);
+			strcopy(sTranslation, iLength, eTranslation == VoteTranslation_Display ? L4D_VOTE_RESTART_START : L4D_VOTE_RESTART_PASSED);
 		}
 
 		case NativeVotesType_Kick: {
-			strcopy(sTranslation, iLength, L4D_VOTE_KICK_START);
+			strcopy(sTranslation, iLength, eTranslation == VoteTranslation_Display ? L4D_VOTE_KICK_START : L4D_VOTE_KICK_PASSED);
 		}
 
 		case NativeVotesType_ChgLevel: {
-			strcopy(sTranslation, iLength, L4D_VOTE_CHANGELEVEL_START);
+			strcopy(sTranslation, iLength, eTranslation == VoteTranslation_Display ? L4D_VOTE_CHANGELEVEL_START : L4D_VOTE_CHANGELEVEL_PASSED);
 		}
 
 		default: {
@@ -1031,90 +1009,4 @@ bool IsValidVoteType(NativeVotesType type)
 	}
 
 	return false;
-}
-
-void VotePassTypeToTranslation(NativeVotesPassType hPassType, char[] sTranslation, int iLength)
-{
-	switch(hPassType)
-	{
-		case NativeVotesPass_Custom: {
-			strcopy(sTranslation, iLength, L4D_VOTE_CUSTOM);
-		}
-
-		case NativeVotesPass_ChgCampaign: {
-			strcopy(sTranslation, iLength, L4D_VOTE_CHANGECAMPAIGN_PASSED);
-		}
-
-		case NativeVotesPass_ChgDifficulty: {
-			strcopy(sTranslation, iLength, L4D_VOTE_CHANGEDIFFICULTY_PASSED);
-		}
-
-		case NativeVotesPass_ReturnToLobby: {
-			strcopy(sTranslation, iLength, L4D_VOTE_RETURNTOLOBBY_PASSED);
-		}
-
-		case NativeVotesPass_AlltalkOn, NativeVotesPass_AlltalkOff: {
-			strcopy(sTranslation, iLength, L4D2_VOTE_ALLTALK_PASSED);
-		}
-
-		case NativeVotesPass_Restart: {
-			strcopy(sTranslation, iLength, L4D_VOTE_RESTART_PASSED);
-		}
-
-		case NativeVotesPass_Kick: {
-			strcopy(sTranslation, iLength, L4D_VOTE_KICK_PASSED);
-		}
-
-		case NativeVotesPass_ChgLevel: {
-			strcopy(sTranslation, iLength, L4D_VOTE_CHANGELEVEL_PASSED);
-		}
-
-		default: {
-			strcopy(sTranslation, iLength, L4D_VOTE_CUSTOM);
-		}
-	}
-}
-
-NativeVotesPassType VoteTypeToVotePass(NativeVotesType hVoteType)
-{
-	switch(hVoteType)
-	{
-		case NativeVotesType_Custom_YesNo: {
-			return NativeVotesPass_Custom;
-		}
-
-		case NativeVotesType_ChgCampaign: {
-			return NativeVotesPass_ChgCampaign;
-		}
-
-		case NativeVotesType_ChgDifficulty: {
-			return NativeVotesPass_ChgDifficulty;
-		}
-
-		case NativeVotesType_ReturnToLobby: {
-			return NativeVotesPass_ReturnToLobby;
-		}
-
-		case NativeVotesType_AlltalkOn: {
-			return NativeVotesPass_AlltalkOn;
-		}
-
-		case NativeVotesType_AlltalkOff: {
-			return NativeVotesPass_AlltalkOff;
-		}
-
-		case NativeVotesType_Restart: {
-			return NativeVotesPass_Restart;
-		}
-
-		case NativeVotesType_Kick: {
-			return NativeVotesPass_Kick;
-		}
-
-		case NativeVotesType_ChgLevel: {
-			return NativeVotesPass_ChgLevel;
-		}
-	}
-	
-	return NativeVotesPass_Custom;
 }
