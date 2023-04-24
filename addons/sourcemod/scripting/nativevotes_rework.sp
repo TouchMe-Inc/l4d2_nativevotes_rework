@@ -11,7 +11,7 @@ public Plugin myinfo = {
 	name = "NativeVotesRework",
 	author = "Powerlord, TouchMe",
 	description = "Voting API to use the game's native vote panels",
-	version = "build_0002",
+	version = "build_0003",
 	url = "https://github.com/TouchMe-Inc/l4d2_nativevotes_rework"
 }
 
@@ -245,7 +245,7 @@ public int Native_GetDetails(Handle hPlugin, int iParams)
 	return 0;
 }
 
-// native void NativeVotes_SetDetails(Handle hVote, const char[] fmt, any ...);
+// native void NativeVotes_SetDetails(Handle hVote, const char[] sFmt, any ...);
 public int Native_SetDetails(Handle hPlugin, int iParams)
 {
 	NativeVote hVote = GetNativeCell(1);
@@ -303,7 +303,7 @@ public int Native_IsClientInVotePool(Handle hPlugin, int iParams)
 		ThrowNativeError(SP_ERROR_NATIVE, "No vote is in progress");
 	}
 
-	return IsClientVoting(iClient) || IsClientVoted(iClient);
+	return !IsClientNotVoting(iClient);
 }
 
 // native NativeVotesType NativeVotes_GetType(Handle hVote);
@@ -374,7 +374,7 @@ public int Native_SetInitiator(Handle hPlugin, int iParams)
 	return 0;
 }
 
-// native void NativeVotes_DisplayPass(Handle hVote, const char[] fmt="", any ...);
+// native void NativeVotes_DisplayPass(Handle hVote, const char[] sFmt="", any ...);
 public int Native_DisplayPass(Handle hPlugin, int iParams)
 {
 	NativeVote hVote = GetNativeCell(1);
@@ -392,9 +392,9 @@ public int Native_DisplayPass(Handle hPlugin, int iParams)
 
 	int iTeam = Data_GetTeam(hVote);
 
-	for (int iClient = 1; iClient <= MaxClients; iClient++)
+	for (int iClient = 1; iClient < MaxClients; iClient++)
 	{
-		if (!IsClientInGame(iClient) || IsFakeClient(iClient)) {
+		if (!IsClientInGame(iClient) || IsFakeClient(iClient) || IsClientNotVoting(iClient)) {
 			continue;
 		}
 
@@ -404,11 +404,10 @@ public int Native_DisplayPass(Handle hPlugin, int iParams)
 			FormatNativeString(0, 2, 3, sizeof(sDetails), _, sDetails);
 		}
 
-		if (strlen(sDetails)) { // fix %s1
+		// Fix details '%s1'
+		if (strlen(sDetails)) {
 			SendVotePass(iClient, iTeam, sTranslation, sDetails);
-		}
-
-		 else {
+		} else {
 			SendVotePass(iClient, iTeam);
 		}
 	}
@@ -426,9 +425,9 @@ public int Native_DisplayFail(Handle hPlugin, int iParams)
 
 	int iTeam = Data_GetTeam(hVote);
 
-	for (int iClient = 1; iClient <= MaxClients; iClient++)
+	for (int iClient = 1; iClient < MaxClients; iClient++)
 	{
-		if (!IsClientInGame(iClient) || IsFakeClient(iClient)) {
+		if (!IsClientInGame(iClient) || IsFakeClient(iClient) || IsClientNotVoting(iClient)) {
 			continue;
 		}
 
@@ -562,13 +561,13 @@ int ParseVoteOption(const char[] sOption)
 	return NATIVEVOTES_VOTE_INVALID;
 }
 
-public void OnClientDisconnect_Post(int client)
+public void OnClientDisconnect(int iClient)
 {
-	if (!IsVoteAlreadyInProgress() || !IsClientVoted(client)) {
+	if (!IsVoteAlreadyInProgress() || IsClientNotVoting(iClient)) {
 		return;
 	}
 
-	g_tVoteInfo.votes[client] = VOTE_NOT_VOTING;
+	g_tVoteInfo.votes[iClient] = VOTE_NOT_VOTING;
 }
 
 public void OnMapStart()
@@ -595,7 +594,7 @@ bool DisplayVote(NativeVote hVote, int[] iClients, int iCountClients, int iShowT
 	UpdateVoteDelay(iShowTime);
 
 	/* Mark all clients as not voting */
-	for (int iClient = 1; iClient <= MaxClients; ++iClient)
+	for (int iClient = 1; iClient < MaxClients; ++iClient)
 	{
 		g_tVoteInfo.votes[iClient] = VOTE_NOT_VOTING;
 	}
@@ -647,9 +646,9 @@ bool DisplayVote(NativeVote hVote, int[] iClients, int iCountClients, int iShowT
 
 	// Display vote
 	bool bCanChangeDetails = (hVoteType == NativeVotesType_Custom_YesNo);
-	for (int iClient = 1; iClient <= MaxClients; ++iClient)
+	for (int iClient = 1; iClient < MaxClients; ++iClient)
 	{
-		if (!IsClientVoting(iClient)) {
+		if (IsClientNotVoting(iClient)) {
 			continue;
 		}
 
@@ -730,13 +729,13 @@ bool IsVoteAlreadyInProgress() {
 	return (g_tVoteInfo.hndl != null);
 }
 
-bool IsClientVoted(int iClient)
+bool IsClientNotVoting(int iClient)
 {
 	if (!IS_VALID_CLIENT(iClient)) {
 		return false;
 	}
 
-	return (g_tVoteInfo.votes[iClient] > VOTE_PENDING);
+	return (g_tVoteInfo.votes[iClient] == VOTE_NOT_VOTING);
 }
 
 bool IsClientVoting(int iClient)
