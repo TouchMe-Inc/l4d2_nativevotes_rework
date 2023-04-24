@@ -34,12 +34,6 @@ enum
 	VoteEnd_VotingCancelled = -2,	/**< Voting was cancelled */
 }
 
-enum VoteTranslation
-{
-	VoteTranslation_Display = 0,	/**< Voting was cancelled */
-	VoteTranslation_Pass			/**< Voting finished */
-}
-
 /**
  * Vote types.
  */
