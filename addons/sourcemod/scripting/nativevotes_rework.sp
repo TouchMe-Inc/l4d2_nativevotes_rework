@@ -392,7 +392,7 @@ public int Native_DisplayPass(Handle hPlugin, int iParams)
 
 	int iTeam = Data_GetTeam(hVote);
 
-	for (int iClient = 1; iClient < MaxClients; iClient++)
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		if (!IsClientInGame(iClient) || IsFakeClient(iClient) || IsClientNotVoting(iClient)) {
 			continue;
@@ -425,7 +425,7 @@ public int Native_DisplayFail(Handle hPlugin, int iParams)
 
 	int iTeam = Data_GetTeam(hVote);
 
-	for (int iClient = 1; iClient < MaxClients; iClient++)
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		if (!IsClientInGame(iClient) || IsFakeClient(iClient) || IsClientNotVoting(iClient)) {
 			continue;
@@ -594,7 +594,7 @@ bool DisplayVote(NativeVote hVote, int[] iClients, int iCountClients, int iShowT
 	UpdateVoteDelay(iShowTime);
 
 	/* Mark all clients as not voting */
-	for (int iClient = 1; iClient < MaxClients; ++iClient)
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		g_tVoteInfo.votes[iClient] = VOTE_NOT_VOTING;
 	}
@@ -646,7 +646,7 @@ bool DisplayVote(NativeVote hVote, int[] iClients, int iCountClients, int iShowT
 
 	// Display vote
 	bool bCanChangeDetails = (hVoteType == NativeVotesType_Custom_YesNo);
-	for (int iClient = 1; iClient < MaxClients; ++iClient)
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		if (IsClientNotVoting(iClient)) {
 			continue;
