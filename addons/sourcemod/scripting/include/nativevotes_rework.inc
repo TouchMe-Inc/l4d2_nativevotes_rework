@@ -30,12 +30,18 @@ enum VoteAction
 
 enum
 {
-	VoteEnd_VotingDone = -1,        /**< Voting finished */
-	VoteEnd_VotingCancelled = -2,   /**< Voting was cancelled */
+	VoteEnd_VotingDone = -1,		/**< Voting finished */
+	VoteEnd_VotingCancelled = -2,	/**< Voting was cancelled */
+}
+
+enum VoteTranslation
+{
+	VoteTranslation_Display = 0,	/**< Voting was cancelled */
+	VoteTranslation_Pass			/**< Voting finished */
 }
 
 /**
- * Vote types. These are mapped to translation strings and pass strings by VoteStart and VotePass handlers
+ * Vote types.
  */
 enum NativeVotesType
 {
@@ -49,20 +55,6 @@ enum NativeVotesType
 	NativeVotesType_Restart,		/**< Yes/No, details are ignored */
 	NativeVotesType_Kick,			/**< Yes/No, target is player userid, details are auto-set by target */
 	NativeVotesType_ChgLevel,		/**< Yes/No, details are level number */
-};
-
-enum NativeVotesPassType
-{
-	NativeVotesPass_None = 0,			/**< Special placeholder for error value */
-	NativeVotesPass_Custom,				/**< Details are custom pass message */
-	NativeVotesPass_ChgCampaign,		/**< Details are campaign name */
-	NativeVotesPass_ChgDifficulty,		/**< Details are difficulty number in L4D/L4D2 and mission name in TF2 */
-	NativeVotesPass_ReturnToLobby,		/**< Details are ignored */
-	NativeVotesPass_AlltalkOn,			/**< Details are ignored */
-	NativeVotesPass_AlltalkOff,			/**< Details are ignored */
-	NativeVotesPass_Restart,			/**< Details are ignored */
-	NativeVotesPass_Kick,				/**< Details are player name */
-	NativeVotesPass_ChgLevel,			/**< Details are level number in L4D/L4D2 */
 };
 
 
@@ -117,86 +109,23 @@ methodmap NativeVote < KeyValues
 	// @error					A vote is already in progress.
 	public native bool DisplayVote(int[] iClients, int numClients, int iShowTime);
 
-	// Sends a vote menu to all clients.  See NativeVotes_Display() for more information.
-	//
-	// @param time				Maximum time to leave vote on the screen.
-	// @return					True on success, false if this menu already has a
-	// 							vote session in progress.
-	// @error					A vote is already in progress.
-	public bool DisplayVoteToAll(int iShowTime)
-	{
-		int total = 0;
-		int[] players = new int[MaxClients];
-		
-		for (int i = 1; i <= MaxClients; i++)
-		{
-			if (!IsClientInGame(i) || IsFakeClient(i))
-				continue;
-			players[total++] = i;
-		}
-		return this.DisplayVote(players, total, iShowTime);
-	}
-
 	// Display default vote passed screen for this vote type
 	//
-	// You MUST call one of the DisplayPass* or DisplayFail functions
+	// You MUST call one of the DisplayPass or DisplayFail functions
 	// to hide the vote screen for users who didn't vote, and to clear out their selection
 	// for the next vote.
 	//
 	// The format string/any args are a Valve format string or the item that won the vote.
 	//
 	// @param fmt 				Message string format
-	// @param ...					Message string arguments.
+	// @param ...				Message string arguments.
 	public native void DisplayPass(const char[] fmt="", any ...);
-
-	// Display vote passed screen with custom text to a single client
-	//
-	// You MUST call one of the DisplayPass* or DisplayFail functions
-	// to hide the vote screen for users who didn't vote, and to clear out their selection
-	// for the next vote.
-	//
-	// You should favor DisplayPassCustom over this function as you must send a
-	// DisplayPass to all clients
-	// 
-	// The format string/any args are the item that won the vote.
-	//
-	// @param iClient				Client to display pass screen to.
-	// @param fmt					A format string.
-	// @param ...					Variable number of format parameters
-	public native void DisplayPassCustomToOne(int iClient, const char[] fmt, any ...);
-
-	// Display vote passed screen with custom text to all clients
-	//
-	// You MUST call one of the DisplayPass* or DisplayFail functions
-	// to hide the vote screen for users who didn't vote, and to clear out their selection
-	// for the next vote.
-	// 
-	// The format string/any args are the item that won the vote.
-	//
-	// @param fmt					A format string.
-	// @param ...					Variable number of format parameters
-	public void DisplayPassCustom(const char[] fmt, any ...)
-	{
-		char buffer[192];
-		
-		for (int i = 1; i <= MaxClients; ++i)
-		{
-			if (!IsClientInGame(i) || IsFakeClient(i))
-				continue;
-				
-			SetGlobalTransTarget(i);
-			VFormat(buffer, sizeof(buffer), fmt, 3);
-			this.DisplayPassCustomToOne(i, "%s", buffer);
-		}
-	}
 
 	// Display vote failure screen to all users in a vote.
 	//
-	// You MUST call one of the DisplayPass* or DisplayFail functions
+	// You MUST call one of the DisplayPass or DisplayFail functions
 	// to hide the vote screen for users who didn't vote, and to clear out their selection
 	// for the next vote.
-	// 
-	// @param reason			Vote failure reason from NativeVotesFailType enum
 	public native void DisplayFail();
 
 	// Retrieve the vote type
@@ -416,33 +345,9 @@ native int NativeVotes_GetInitiator(Handle hVote);
 native bool NativeVotes_DisplayVote(Handle hVote, int[] iClients, int iCountClients, int iShowTime);
 
 /**
- * Sends a vote menu to all clients.  See NativeVotes_Display() for more information.
- *
- * @param hVote				Vote Handle.
- * @param iShowTime			Maximum time to leave menu on the screen.
- * @return					True on success, false if this menu already has a vote session
- *							in progress.
- * @error					Invalid Handle, or a vote is already in progress.
- */
-stock bool NativeVotes_DisplayVoteToAll(Handle hVote, int iShowTime)
-{
-	int total = 0;
-	int[] players = new int[MaxClients];
-	
-	for (int i=1; i<=MaxClients; i++)
-	{
-		if (!IsClientInGame(i) || IsFakeClient(i))
-			continue;
-		players[total++] = i;
-	}
-	
-	return NativeVotes_DisplayVote(hVote, players, total, iShowTime);
-}
-
-/**
  * Display default vote passed screen for this vote type
  *
- * You MUST call one of the NativeVotes_DisplayPass* or NativeVotes_DisplayFail functions
+ * You MUST call one of the NativeVotes_DisplayPass or NativeVotes_DisplayFail functions
  * to hide the vote screen for users who didn't vote, and to clear out their selection
  * for the next vote.
  * 
@@ -455,56 +360,9 @@ stock bool NativeVotes_DisplayVoteToAll(Handle hVote, int iShowTime)
 native void NativeVotes_DisplayPass(Handle hVote, const char[] fmt="", any ...);
 
 /**
- * Display vote passed screen with custom text to a single user
- *
- * You MUST call one of the NativeVotes_DisplayPass* or NativeVotes_DisplayFail functions
- * to hide the vote screen for users who didn't vote, and to clear out their selection
- * for the next vote.
- * 
- * You should favor DisplayPassCustom over this function as you must send a
- * NativeVotes_DisplayPass to all clients
- * 
- * The format string/any args are a Valve format string or the item that won the vote.
- *
- * @param hVote				Vote handle
- * @param iClient			Client to display pass screen to.
- * @param fmt 				Message string format
- * @param ...				Message string arguments.
- */
-native void NativeVotes_DisplayPassCustomToOne(Handle hVote, int iClient, const char[] fmt="", any ...);
-
-/**
- * Display vote passed screen with custom text
- *
- * You MUST call one of the NativeVotes_DisplayPass* or NativeVotes_DisplayFail functions
- * to hide the vote screen for users who didn't vote, and to clear out their selection
- * for the next vote.
- * 
- * The format string/any args are a Valve format string or the item that won the vote.
- * 
- * @param hVote				Vote handle
- * @param fmt 				Message string format
- * @param ...				Message string arguments.
- */
-stock void NativeVotes_DisplayPassCustom(Handle hVote, const char[] fmt="", any ...)
-{
-	char buffer[192];
-	
-	for (int i = 1; i <= MaxClients; ++i)
-	{
-		if (IsClientInGame(i) && !IsFakeClient(i))
-		{
-			SetGlobalTransTarget(i);
-			VFormat(buffer, sizeof(buffer), fmt, 3);
-			NativeVotes_DisplayPassCustomToOne(hVote, i, "%s", buffer);
-		}
-	}
-}
-
-/**
  * Display vote failure screen to all users in a vote.
  *
- * You MUST call one of the NativeVotes_DisplayPass* or NativeVotes_DisplayFail functions
+ * You MUST call one of the NativeVotes_DisplayPass or NativeVotes_DisplayFail functions
  * to hide the vote screen for users who didn't vote, and to clear out their selection
  * for the next vote.
  * 
@@ -555,7 +413,6 @@ public void __pl_nativevotes_rework_SetNTVOptional()
 	MarkNativeAsOptional("NativeVotes_GetTarget");
 	MarkNativeAsOptional("NativeVotes_DisplayVote");
 	MarkNativeAsOptional("NativeVotes_DisplayPass");
-	MarkNativeAsOptional("NativeVotes_DisplayPassCustomToOne");
 	MarkNativeAsOptional("NativeVotes_DisplayFail");
 	MarkNativeAsOptional("NativeVotes_GetType");
 	MarkNativeAsOptional("NativeVotes_SetTeam");
