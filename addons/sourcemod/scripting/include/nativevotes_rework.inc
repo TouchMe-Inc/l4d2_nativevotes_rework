@@ -4,7 +4,7 @@
 #define _nativevotes_rework_included
 
 
-#define NATIVEVOTES_ALL_TEAMS       -1 /**< Formerly defined by TF2, may be the same in L4D2 */
+#define NATIVEVOTES_ALL_TEAMS       255 /**< Formerly defined by TF2, may be the same in L4D2 */
 #define NATIVEVOTES_TEAM_UNASSIGNED 0  /**< For completeness, do not otherwise use */
 #define NATIVEVOTES_TEAM_SPECTATOR  1  /**< Spectators */
 #define NATIVEVOTES_TEAM_1          2  /**< Survivors */
