@@ -56,7 +56,7 @@ public Plugin myinfo = {
 
 // Vote controller issue
 #define INVALID_ISSUE           -1
-#define VALID_ISSUE             1
+#define VALID_ISSUE             0
 
 // Vote info
 #define VOTE_DETAILS_LENGTH     128
