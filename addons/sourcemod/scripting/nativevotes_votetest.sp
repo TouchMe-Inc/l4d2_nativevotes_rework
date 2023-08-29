@@ -9,7 +9,7 @@
 
 public Plugin myinfo = 
 {
-	name = "NativeVotesRevorkTest",
+	name = "NativeVotesReworkTest",
 	author = "Powerlord",
 	description = "Test",
 	version = "build_0001",
@@ -98,4 +98,3 @@ public Action HandlerCustomYesNo(NativeVote hVote, VoteAction iAction, int iPara
 
 	return Plugin_Continue;
 }
-
