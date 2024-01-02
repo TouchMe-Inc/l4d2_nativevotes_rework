@@ -11,7 +11,7 @@ public Plugin myinfo = {
 	name = "NativeVotesRework",
 	author = "Powerlord, TouchMe",
 	description = "Voting API to use the game's native vote panels",
-	version = "build_0003",
+	version = "build_0004",
 	url = "https://github.com/TouchMe-Inc/l4d2_nativevotes_rework"
 }
 
@@ -87,17 +87,17 @@ enum struct VoteInfo
 
 VoteInfo g_tVoteInfo;
 
-ConVar g_cvVoteDelay;
+ConVar g_cvVoteDelay = null;
 
 
 /**
  * Called before OnPluginStart.
- * 
+ *
  * @param myself      Handle to the plugin
  * @param late        Whether or not the plugin was loaded "late" (after map load)
  * @param error       Error message buffer in case load failed
  * @param err_max     Maximum number of characters for error message buffer
- * @return            APLRes_Success | APLRes_SilentFailure 
+ * @return            APLRes_Success | APLRes_SilentFailure
  */
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
@@ -190,7 +190,7 @@ public int Native_Create(Handle hPlugin, int iParams)
 public int Native_Close(Handle hPlugin, int iParams)
 {
 	NativeVote hVote = GetNativeCell(1);
-	
+
 	if (hVote == null) {
 		return 0;
 	}
@@ -223,7 +223,7 @@ public int Native_DisplayVote(Handle hPlugin, int iParams)
 	int iShowTime = GetNativeCell(4);
 
 	return DisplayVote(hVote, iPlayers, iTotalPlayers, iShowTime);
-	
+
 }
 
 // native void NativeVotes_GetDetails(Handle hVote, char[] buffer, int maxlength);
@@ -313,7 +313,7 @@ public int Native_GetType(Handle hPlugin, int iParams)
 	if (hVote == null) {
 		ThrowNativeError(SP_ERROR_NATIVE, "NativeVotes handle %x is invalid", hVote);
 	}
-	
+
 	return view_as<int>(Data_GetType(hVote));
 }
 
@@ -465,7 +465,7 @@ public int Native_SetTarget(Handle hPlugin, int iParams)
 	}
 
 	int iClient = GetNativeCell(2);
-	
+
 	if (!IS_VALID_CLIENT(iClient) || !IsClientConnected(iClient)) {
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", iClient);
 	}
@@ -482,9 +482,9 @@ public void OnPluginStart()
 {
 	HookConVarChange(
 		g_cvVoteDelay = CreateConVar(
-			.name = "nativevotes_vote_delay", 
-			.defaultValue = "30", 
-			.description = "Sets the recommended time in between public votes", 
+			.name = "nativevotes_vote_delay",
+			.defaultValue = "30",
+			.description = "Sets the recommended time in between public votes",
 			.hasMin = true,
 			.min = 0.0
 		),
@@ -515,7 +515,7 @@ public Action Listener_Vote(int iClient, const char[] command, int argc)
 	if (!IsVoteAlreadyInProgress() || !IsClientVoting(iClient)) {
 		return Plugin_Continue;
 	}
-	
+
 	char sOption[32];
 	GetCmdArgString(sOption, sizeof(sOption));
 
@@ -708,7 +708,14 @@ void FinishVote()
 	RunVoteAction(hVote, VoteAction_Finish, iResult);
 	RunVoteAction(hVote, VoteAction_End, VoteEnd_VotingDone);
 
+	CreateTimer(2.0, Timer_DelayResetVoteController, .flags = TIMER_FLAG_NO_MAPCHANGE);
+}
+
+Action Timer_DelayResetVoteController(Handle hTimer)
+{
 	ResetVoteController();
+
+	return Plugin_Stop;
 }
 
 void AbortVote()
