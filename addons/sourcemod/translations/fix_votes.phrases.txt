@@ -1,0 +1,13 @@
+"Phrases"
+{
+	"TAG"
+	{
+		"en"			"<{green}Fix Votes{default}> "
+	}
+
+	"VOTE_COULDOWN"
+	{
+		"#format"		"{1:d}"
+		"en"			"A vote cannot be called at this moment, try again in a {1} second"
+	}
+}
