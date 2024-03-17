@@ -11,7 +11,7 @@ public Plugin myinfo =
 	name = "FixVotes",
 	author = "TouchMe",
 	description = "N/a",
-	version = "build0001",
+	version = "build0002",
 	url = "https://github.com/TouchMe-Inc/l4d2_nativevotes_rework"
 }
 
@@ -51,7 +51,12 @@ public Action Listener_CallVote(int iClient, const char[] command, int argc)
 
 	if (!NativeVotes_IsNewVoteAllowed())
 	{
-		CPrintToChat(iClient, "%T%T", "TAG", iClient, "VOTE_COULDOWN", iClient, NativeVotes_CheckVoteDelay());
+		if (NativeVotes_CheckVoteDelay() > 0) {
+			CPrintToChat(iClient, "%T%T", "TAG", iClient, "VOTE_COULDOWN", iClient, NativeVotes_CheckVoteDelay());
+		} else {
+			CPrintToChat(iClient, "%T%T", "TAG", iClient, "VOTE_IN_PROGRESS", iClient);
+		}
+		
 		return Plugin_Handled;
 	}
 
@@ -67,6 +72,7 @@ public Action Listener_CallVote(int iClient, const char[] command, int argc)
 
 		if (!iTarget
 		|| iTarget == iClient /*< Block self-kick */
+		|| IsFakeClient(iTarget) /*< Block bot kick */
 		|| GetClientTeam(iTarget) != GetClientTeam(iClient)) { /*< Block kickvotes not aimed at players in the same team */
 			return Plugin_Handled;
 		}
