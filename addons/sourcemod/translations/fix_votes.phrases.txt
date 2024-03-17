@@ -10,4 +10,9 @@
 		"#format"		"{1:d}"
 		"en"			"A vote cannot be called at this moment, try again in a {1} second"
 	}
+
+	"VOTE_IN_PROGRESS"
+	{
+		"en"			"Looks like there is active voting now"
+	}
 }
