@@ -11,7 +11,7 @@ public Plugin myinfo = {
     name        = "NativeVotesRework",
     author      = "Powerlord, TouchMe",
     description = "Voting API to use the game's native vote panels",
-    version     = "build_0004",
+    version     = "build_0005",
     url         = "https://github.com/TouchMe-Inc/l4d2_nativevotes_rework"
 }
 
@@ -39,28 +39,36 @@ public Plugin myinfo = {
 #define L4D_VOTE_CHANGEDIFFICULTY_PASSED "#L4D_vote_passed_change_difficulty"
 
 // While not a vote string, it works just as well.
-#define L4D_VOTE_CUSTOM         "#L4D_TargetID_Player"
+#define L4D_VOTE_CUSTOM          "#L4D_TargetID_Player"
 
 // User vote to change alltalk.
-#define L4D2_VOTE_ALLTALK_START "#L4D_vote_alltalk_change"
+#define L4D2_VOTE_ALLTALK_START  "#L4D_vote_alltalk_change"
 #define L4D2_VOTE_ALLTALK_PASSED "#L4D_vote_passed_alltalk_change"
 #define L4D2_VOTE_ALLTALK_ENABLE "#L4D_vote_alltalk_enable"
 #define L4D2_VOTE_ALLTALK_DISABLE "#L4D_vote_alltalk_disable"
 
 // Vote controller params
-#define VCP_VOTES_YES           "m_votesYes"
-#define VCP_VOTES_NO            "m_votesNo"
-#define VCP_POTENTIAL_VOTES     "m_potentialVotes"
-#define VCP_TEAM                "m_onlyTeamToVote"
-#define VCP_ACTIVE_ISSUE        "m_activeIssueIndex"
+#define VCP_VOTES_YES            "m_votesYes"
+#define VCP_VOTES_NO             "m_votesNo"
+#define VCP_POTENTIAL_VOTES      "m_potentialVotes"
+#define VCP_TEAM                 "m_onlyTeamToVote"
+#define VCP_ACTIVE_ISSUE         "m_activeIssueIndex"
 
 // Vote controller issue
 #define INVALID_ISSUE           -1
-#define VALID_ISSUE             0
+#define VALID_ISSUE              0
+
+#define ISSUE_CHANGEDIFFICULTY   0
+#define ISSUE_RESTARTGAME        1
+#define ISSUE_KICK               2
+#define ISSUE_CHANGEMISSION      3
+#define ISSUE_RETURNTOLOBBY      4
+#define ISSUE_CHANGECHAPTER      5
+#define ISSUE_CHANGEALLTALK      6
 
 // Vote info
-#define VOTE_DETAILS_LENGTH     128
-#define TRANSLATION_LENGTH      192
+#define VOTE_DETAILS_LENGTH      128
+#define TRANSLATION_LENGTH       192
 
 // Client info
 #define VOTE_NOT_VOTING         -2
@@ -78,6 +86,8 @@ enum struct VoteInfo
     int cooldown;
     int votes[MAXPLAYERS + 1];
 }
+
+float g_fLastTime = 0.0;
 
 VoteInfo g_tVoteInfo;
 
@@ -137,6 +147,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
     CreateNative("NativeVote.Team.get", Native_GetTeam);
     CreateNative("NativeVote.Initiator.set", Native_SetInitiator);
     CreateNative("NativeVote.Initiator.get", Native_GetInitiator);
+    CreateNative("NativeVote.Target.set", Native_SetTarget);
+    CreateNative("NativeVote.Target.get", Native_GetTarget);
 
     RegPluginLibrary("nativevotes_rework");
 
@@ -260,7 +272,7 @@ public int Native_SetDetails(Handle hPlugin, int iParams)
 
 // native bool NativeVotes_IsVoteInProgress();
 public int Native_IsVoteInProgress(Handle hPlugin, int iParams) {
-    return IsVoteAlreadyInProgress() || IsVoteControllerActive();
+    return IsVoteAlreadyInProgress() || IsVoteControllerActive() || (GetEngineTime() - g_fLastTime <= 2.0);
 }
 
 // native NativeVotes_Cancel();
@@ -334,12 +346,6 @@ public int Native_SetTeam(Handle hPlugin, int iParams)
 
     int iTeam = GetNativeCell(2);
 
-    // Teams are numbered starting with 0
-    // Currently 4 is the maximum (Unassigned, Spectator, Team 1, Team 2)
-    if (iTeam >= GetTeamCount()) {
-        ThrowNativeError(SP_ERROR_NATIVE, "Team %d is invalid", iTeam);
-    }
-
     hVote.SetNum("team", iTeam);
 
     return 0;
@@ -382,13 +388,15 @@ public int Native_DisplayPass(Handle hPlugin, int iParams)
     NativeVotesType hVoteType = Data_GetType(hVote);
 
     char szTranslation[TRANSLATION_LENGTH];
-    VoteTypeToPassed(hVoteType, szTranslation, sizeof(szTranslation));
+    VoteTypeToPassed(hVoteType, szTranslation, sizeof szTranslation);
 
     char szDetails[VOTE_DETAILS_LENGTH];
-    bool bDetailsChanged = VoteTypeToDetails(hVoteType, szDetails, sizeof(szDetails));
+    hVote.GetDetails(szDetails, sizeof szDetails);
+    bool bDetailsChanged = VoteTypeToDetails(hVoteType, szDetails, sizeof szDetails);
 
     int iTeam = Data_GetTeam(hVote);
 
+    char szDetailsBuffer[VOTE_DETAILS_LENGTH];
     for (int iClient = 1; iClient <= MaxClients; iClient++)
     {
         if (!IsClientInGame(iClient) || IsFakeClient(iClient) || IsClientNotVoting(iClient)) {
@@ -398,15 +406,19 @@ public int Native_DisplayPass(Handle hPlugin, int iParams)
         if (!bDetailsChanged)
         {
             SetGlobalTransTarget(iClient);
-            FormatNativeString(0, 2, 3, sizeof(szDetails), _, szDetails);
+            FormatNativeString(0, 2, 3, sizeof szDetailsBuffer, _, szDetailsBuffer);
+
+            if (szDetailsBuffer[0] != '\0')
+            {
+                strcopy(szDetails, sizeof szDetails, szDetailsBuffer);
+            } else {
+                SendVotePass(iClient, iTeam);
+                continue;
+            }
         }
 
         // Fix details '%s1'
-        if (strlen(szDetails)) {
-            SendVotePass(iClient, iTeam, szTranslation, szDetails);
-        } else {
-            SendVotePass(iClient, iTeam);
-        }
+        SendVotePass(iClient, iTeam, szTranslation, szDetails);
     }
 
     return 0;
@@ -480,7 +492,7 @@ public void OnPluginStart()
     HookConVarChange(
         g_cvVoteDelay = CreateConVar(
             .name = "nativevotes_vote_delay",
-            .defaultValue = "30",
+            .defaultValue = "25",
             .description = "Sets the recommended time in between public votes",
             .hasMin = true,
             .min = 0.0
@@ -509,7 +521,7 @@ public void CvChange_VoteDelay(ConVar convar, const char[] sOldDelay, const char
 
 public Action Listener_Vote(int iClient, const char[] command, int argc)
 {
-    if (!IsVoteAlreadyInProgress() || !IsClientVoting(iClient)) {
+    if (!IsVoteAlreadyInProgress() || !iClient || !IsClientVoting(iClient)) {
         return Plugin_Continue;
     }
 
@@ -626,15 +638,26 @@ bool DisplayVote(NativeVote hVote, int[] iClients, int iCountClients, int iShowT
 
     // Details
     char szDetails[VOTE_DETAILS_LENGTH];
-    if (!VoteTypeToDetails(hVoteType, szDetails, sizeof(szDetails))) {
-        Data_GetDetails(hVote, szDetails, sizeof(szDetails));
+    if (!VoteTypeToDetails(hVoteType, szDetails, sizeof szDetails)) {
+        Data_GetDetails(hVote, szDetails, sizeof szDetails);
+    }
+
+    if (hVoteType == NativeVotesType_Kick && szDetails[0] == '\0')
+    {
+        int iTarget = GetClientOfUserId(Data_GetTarget(hVote));
+
+        if (IsValidClient(iTarget) && IsClientConnected(iTarget)) {
+            GetClientName(iTarget, szDetails, sizeof szDetails);
+        } else {
+            strcopy(szDetails, sizeof szDetails, "...");
+        }
     }
 
     // Initiator
     int iInitiator = hVote.GetNum("initiator", NATIVEVOTES_SERVER_INDEX);
-    char sInitiatorName[MAX_NAME_LENGTH];
+    char szInitiatorName[MAX_NAME_LENGTH];
     if (iInitiator != NATIVEVOTES_SERVER_INDEX && IsValidClient(iInitiator) && IsClientInGame(iInitiator)) {
-        GetClientName(iInitiator, sInitiatorName, sizeof(sInitiatorName));
+        GetClientName(iInitiator, szInitiatorName, sizeof szInitiatorName);
     }
 
     RunVoteAction(hVote, VoteAction_Start, iInitiator);
@@ -648,18 +671,18 @@ bool DisplayVote(NativeVote hVote, int[] iClients, int iCountClients, int iShowT
         }
 
         if (bCanChangeDetails && RunVoteAction(hVote, VoteAction_Display, iClient) == Plugin_Changed) {
-            Data_GetDetails(hVote, szDetails, sizeof(szDetails));
+            Data_GetDetails(hVote, szDetails, sizeof szDetails);
         }
 
-        SendClientVoteStart(iClient, iTeam, szTranslation, szDetails, iInitiator, sInitiatorName);
+        SendClientVoteStart(iClient, iTeam, szTranslation, szDetails, iInitiator, szInitiatorName);
     }
 
     // Kick targets automatically vote no if they're in the pool
     if (hVoteType == NativeVotesType_Kick)
     {
-        int iTarget = Data_GetTarget(hVote);
+        int iTarget = GetClientOfUserId(Data_GetTarget(hVote));
 
-        if (IsValidClient(iTarget) && IsClientConnected(iTarget) && IsClientVoting(iTarget)) {
+        if (IsValidClient(iTarget) && IsClientConnected(iTarget) && IsClientVoting(iInitiator)) {
             FakeClientCommand(iTarget, "Vote No");
         }
     }
@@ -703,14 +726,9 @@ void FinishVote()
     RunVoteAction(hVote, VoteAction_Finish, iResult);
     RunVoteAction(hVote, VoteAction_End, VoteEnd_VotingDone);
 
-    CreateTimer(2.0, Timer_DelayResetVoteController, .flags = TIMER_FLAG_NO_MAPCHANGE);
-}
-
-Action Timer_DelayResetVoteController(Handle hTimer)
-{
     ResetVoteController();
 
-    return Plugin_Stop;
+    g_fLastTime = GetEngineTime();
 }
 
 void AbortVote()
@@ -731,21 +749,11 @@ bool IsVoteAlreadyInProgress() {
     return (g_tVoteInfo.hndl != null);
 }
 
-bool IsClientNotVoting(int iClient)
-{
-    if (!IsValidClient(iClient)) {
-        return false;
-    }
-
+bool IsClientNotVoting(int iClient) {
     return (g_tVoteInfo.votes[iClient] == VOTE_NOT_VOTING);
 }
 
-bool IsClientVoting(int iClient)
-{
-    if (!IsValidClient(iClient)) {
-        return false;
-    }
-
+bool IsClientVoting(int iClient) {
     return (g_tVoteInfo.votes[iClient] == VOTE_PENDING);
 }
 
@@ -788,14 +796,14 @@ void SendClientSelectedItem(int iClient, int iItem)
     EndMessage();
 }
 
-void SendClientVoteStart(int iClient, int iTeam, const char[] szTranslation, const char[] szDetails,  int iInitiator, const char[] sInitiatorName)
+void SendClientVoteStart(int iClient, int iTeam, const char[] szTranslation, const char[] szDetails,  int iInitiator, const char[] szInitiatorName)
 {
     BfWrite hVoteStart = UserMessageToBfWrite(StartMessageOne("VoteStart", iClient, USERMSG_RELIABLE));
     hVoteStart.WriteByte(iTeam);
     hVoteStart.WriteByte(iInitiator);
     hVoteStart.WriteString(szTranslation);
     hVoteStart.WriteString(szDetails);
-    hVoteStart.WriteString(sInitiatorName);
+    hVoteStart.WriteString(szInitiatorName);
     EndMessage();
 }
 
@@ -842,12 +850,12 @@ void SetupVoteController(int iVotesYes, int iVotesNo, int iVotesPotential, int i
     SetVoteControllerParam(VCP_ACTIVE_ISSUE, iIssue);
 }
 
-void SetVoteControllerParam(const char[] sParam, int iValue) {
-    SetEntProp(g_tVoteInfo.controller, Prop_Send, sParam, iValue);
+void SetVoteControllerParam(const char[] szParam, int iValue) {
+    SetEntProp(g_tVoteInfo.controller, Prop_Send, szParam, iValue);
 }
 
-int GetVoteControllerParam(const char[] sParam) {
-    return GetEntProp(g_tVoteInfo.controller, Prop_Send, sParam);
+int GetVoteControllerParam(const char[] szParam) {
+    return GetEntProp(g_tVoteInfo.controller, Prop_Send, szParam);
 }
 
 bool IsVoteControllerActive() {
@@ -958,18 +966,19 @@ void VoteTypeToPassed(NativeVotesType hVoteType, char[] szTranslation, int iLeng
     strcopy(szTranslation, iLength, szVotePassed[hVoteType]);
 }
 
-bool VoteTypeToDetails(NativeVotesType hVoteType, char[] szDetails, int iLength)
+bool VoteTypeToDetails(NativeVotesType type, char[] szDetails, int iLength)
 {
-    if (hVoteType == NativeVotesType_AlltalkOn)
+    switch (type)
     {
-        strcopy(szDetails, iLength, L4D2_VOTE_ALLTALK_ENABLE);
-        return true;
-    }
+        case NativeVotesType_AlltalkOn: {
+            strcopy(szDetails, iLength, L4D2_VOTE_ALLTALK_ENABLE);
+            return true;
+        }
 
-    if (hVoteType == NativeVotesType_AlltalkOff)
-    {
-        strcopy(szDetails, iLength, L4D2_VOTE_ALLTALK_DISABLE);
-        return true;
+        case NativeVotesType_AlltalkOff: {
+            strcopy(szDetails, iLength, L4D2_VOTE_ALLTALK_DISABLE);
+            return true;
+        }
     }
 
     return false;

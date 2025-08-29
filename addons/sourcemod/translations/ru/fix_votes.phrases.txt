@@ -1,18 +1,29 @@
 "Phrases"
 {
-	"TAG"
-	{
-		"ru"			"<{green}Fix Votes{default}> "
-	}
+    "TAG"
+    {
+        "ru"			"<{green}Votes{default}> "
+    }
 
-	"VOTE_COULDOWN"
-	{
-		"#format"		"{1:d}"
-		"ru"			"В данный момент невозможно объявить голосование. Повторите попытку через {olive}{1}{default} сек"
-	}
+    "VOTE_COOLDOWN"
+    {
+        "#format"		"{1:d}"
+        "ru"			"Голосование недоступно. Повторите попытку через {olive}{1}{default} сек"
+    }
 
-	"VOTE_IN_PROGRESS"
+    "VOTE_IN_PROGRESS"
+    {
+        "ru"			"Похоже, сейчас идет активное голосование"
+    }
+
+    "VOTE_ACCESS_DENY"
+    {
+        "ru"            "У вас нет прав для запуска этого голосования"
+    }
+
+    "VOTE_KICK_ADMIN"
 	{
-		"ru"			"Похоже, сейчас идет активное голосование"
+		"#format"		"{1:N}"
+		"ru"			"{olive}{1}{default} попытался кикнуть тебя"
 	}
 }

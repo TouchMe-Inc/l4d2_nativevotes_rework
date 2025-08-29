@@ -8,7 +8,7 @@
 
 public Plugin myinfo = {
     name        = "FixVotePoll",
-    author      = "raziEiL [disawar1]",
+    author      = "raziEiL [disawar1], TouchMe",
     description = "Changes number of players eligible to vote",
     version     = "build_0001",
     url         = "https://github.com/TouchMe-Inc/l4d2_nativevotes_rework"
@@ -141,9 +141,13 @@ int GetTotalPlayers()
 
     for (int iClient = 1; iClient <= MaxClients; iClient++)
     {
-        if (IsClientInGame(iClient)
-        && !IsFakeClient(iClient)
-        && GetClientTeam(iClient) != NATIVEVOTES_TEAM_SPECTATOR) {
+        if (!IsClientInGame(iClient) || IsFakeClient(iClient)) {
+            continue;
+        }
+
+        int iClientTeam = GetClientTeam(iClient);
+
+        if (iClientTeam == NATIVEVOTES_TEAM_1 || iClientTeam == NATIVEVOTES_TEAM_2) {
             iPlayerCount++;
         }
     }

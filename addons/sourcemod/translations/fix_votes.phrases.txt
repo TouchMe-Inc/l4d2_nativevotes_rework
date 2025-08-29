@@ -1,18 +1,29 @@
 "Phrases"
 {
-	"TAG"
-	{
-		"en"			"<{green}Fix Votes{default}> "
-	}
+    "TAG"
+    {
+        "en"			"<{green}Votes{default}> "
+    }
 
-	"VOTE_COULDOWN"
-	{
-		"#format"		"{1:d}"
-		"en"			"A vote cannot be called at this moment, try again in a {olive}{1}{default} second"
-	}
+    "VOTE_COOLDOWN"
+    {
+        "#format"		"{1:d}"
+        "en" "Vote unavailable. Retry in {olive}{1}{default} sec"
+    }
 
-	"VOTE_IN_PROGRESS"
+    "VOTE_IN_PROGRESS"
+    {
+        "en"			"Looks like there is active voting now"
+    }
+
+    "VOTE_ACCESS_DENY"
+    {
+        "en"            "You do not have permission to initiate this vote"
+    }
+
+    "VOTE_KICK_ADMIN"
 	{
-		"en"			"Looks like there is active voting now"
+		"#format"		"{1:N}"
+		"en"			"{olive}{1}{default} tried to kick you"
 	}
 }
