@@ -8,8 +8,8 @@
 
 public Plugin myinfo =
 {
-    name        = "NativeVotesReworkTest",
-    author      = "Powerlord",
+    name        = "[NVR] Example",
+    author      = "TouchMe",
     description = "Test",
     version     = "build_0001",
     url         = "https://github.com/TouchMe-Inc/l4d2_nativevotes_rework"
@@ -29,10 +29,10 @@ public Action Cmd_TestYesNo(int iClient, int args)
         return Plugin_Handled;
     }
 
-    NativeVote hVote = new NativeVote(HandlerCustomYesNo, NativeVotesType_Custom_YesNo);
+    NativeVote nv = new NativeVote(HandlerCustomYesNo, NativeVotesType_Custom_YesNo);
 
-    hVote.Initiator = iClient;
-    hVote.SetDetails("My static details");
+    nv.Initiator = iClient;
+    nv.SetDetails("My static details");
 
     int iTotalPlayers;
     int[] iPlayers = new int[MaxClients];
@@ -46,12 +46,12 @@ public Action Cmd_TestYesNo(int iClient, int args)
         iPlayers[iTotalPlayers++] = iPlayer;
     }
 
-    hVote.DisplayVote(iPlayers, iTotalPlayers, 20);
+    nv.DisplayVote(iPlayers, iTotalPlayers, 20);
 
     return Plugin_Handled;
 }
 
-public Action HandlerCustomYesNo(NativeVote hVote, VoteAction iAction, int iParam1, int iParam2)
+public Action HandlerCustomYesNo(NativeVote nv, VoteAction iAction, int iParam1, int iParam2)
 {
     switch (iAction)
     {
@@ -63,7 +63,7 @@ public Action HandlerCustomYesNo(NativeVote hVote, VoteAction iAction, int iPara
         {
             char display[64];
             Format(display, sizeof(display), "%N sees this message", iParam1);
-            hVote.SetDetails(display);
+            nv.SetDetails(display);
             return Plugin_Changed;
         }
 
@@ -72,27 +72,22 @@ public Action HandlerCustomYesNo(NativeVote hVote, VoteAction iAction, int iPara
             PrintToChatAll("Player %N select %s", iParam1, iParam2 == NATIVEVOTES_VOTE_YES ? "yes" : "no");
         }
 
-        case VoteAction_Cancel:
-        {
-            hVote.DisplayFail();
-        }
+        case VoteAction_Cancel: nv.DisplayFail();
 
         case VoteAction_Finish:
         {
             if (iParam1 == NATIVEVOTES_VOTE_NO)
             {
-                hVote.DisplayFail();
+                nv.DisplayFail();
             }
             else
             {
-                hVote.DisplayPass("Test Yes/No Vote Passed!");
+                nv.DisplayPass("Test Yes/No Vote Passed!");
                 // Do something because it passed
             }
         }
 
-        case VoteAction_End: {
-            hVote.Close();
-        }
+        case VoteAction_End: nv.Close();
     }
 
     return Plugin_Continue;
