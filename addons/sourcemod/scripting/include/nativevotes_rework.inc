@@ -78,17 +78,6 @@ methodmap NativeVote < KeyValues
     // @param maxlength         Maximum length of the buffer.
     public native void GetDetails(char[] buffer, int maxlength);
 
-    // Sets the target userid for vote
-    // This should be used instead of SetArgument for votes that target players
-    //
-    // @param iClient           Client index of target player or 0 to clear target
-    public native void SetTarget(int iClient);
-
-    // Returns the vote's target client index, 0 for client disconnected, or -1 for no target.
-    //
-    // @return                  Client index of target player, 0 for client disconnected, or -1 for no target.
-    public native int GetTarget();
-
     // Broadcasts a vote to a list of clients. The most selected item will be
     // returned through VoteAction_Finish.
     //
@@ -138,6 +127,11 @@ methodmap NativeVote < KeyValues
     property int Initiator {
         public native get();
         public native set(int iInitiator);
+    }
+
+    property int Target {
+        public native get();
+        public native set(int iTarget);
     }
 }
 
