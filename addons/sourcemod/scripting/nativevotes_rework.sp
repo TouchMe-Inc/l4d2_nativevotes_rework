@@ -56,7 +56,7 @@ public Plugin myinfo = {
 
 // Vote controller issue
 #define INVALID_ISSUE           -1
-#define VALID_ISSUE              7
+#define VALID_ISSUE              0
 
 #define ISSUE_CHANGEDIFFICULTY   0
 #define ISSUE_RESTARTGAME        1
@@ -86,6 +86,8 @@ enum struct VoteInfo
     int cooldown;
     int votes[MAXPLAYERS + 1];
 }
+
+float g_fLastTime = 0.0;
 
 VoteInfo g_tVoteInfo;
 
@@ -270,7 +272,7 @@ public int Native_SetDetails(Handle hPlugin, int iParams)
 
 // native bool NativeVotes_IsVoteInProgress();
 public int Native_IsVoteInProgress(Handle hPlugin, int iParams) {
-    return IsVoteAlreadyInProgress() || IsVoteControllerActive();
+    return IsVoteAlreadyInProgress() || IsVoteControllerActive() || (GetEngineTime() - g_fLastTime <= 2.0);
 }
 
 // native NativeVotes_Cancel();
@@ -720,14 +722,9 @@ void FinishVote()
     RunVoteAction(hVote, VoteAction_Finish, iResult);
     RunVoteAction(hVote, VoteAction_End, VoteEnd_VotingDone);
 
-    CreateTimer(2.0, Timer_DelayResetVoteController, .flags = TIMER_FLAG_NO_MAPCHANGE);
-}
-
-Action Timer_DelayResetVoteController(Handle hTimer)
-{
     ResetVoteController();
 
-    return Plugin_Stop;
+    g_fLastTime = GetEngineTime();
 }
 
 void AbortVote()
@@ -849,12 +846,12 @@ void SetupVoteController(int iVotesYes, int iVotesNo, int iVotesPotential, int i
     SetVoteControllerParam(VCP_ACTIVE_ISSUE, iIssue);
 }
 
-void SetVoteControllerParam(const char[] sParam, int iValue) {
-    SetEntProp(g_tVoteInfo.controller, Prop_Send, sParam, iValue);
+void SetVoteControllerParam(const char[] szParam, int iValue) {
+    SetEntProp(g_tVoteInfo.controller, Prop_Send, szParam, iValue);
 }
 
-int GetVoteControllerParam(const char[] sParam) {
-    return GetEntProp(g_tVoteInfo.controller, Prop_Send, sParam);
+int GetVoteControllerParam(const char[] szParam) {
+    return GetEntProp(g_tVoteInfo.controller, Prop_Send, szParam);
 }
 
 bool IsVoteControllerActive() {

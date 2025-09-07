@@ -214,7 +214,9 @@ public Action HandleVoteKick(NativeVote nv, VoteAction va, int iParam1, int iPar
             }
 
             nv.DisplayPass();
-            ServerCommand("sm_kick #%d \"Kicked from the team\"", GetClientUserId(nv.Target));
+            if (nv.Target > 0) {
+                ServerCommand("sm_kick #%d \"Kicked from the team\"", GetClientUserId(nv.Target));
+            }
         }
 
         case VoteAction_Cancel: nv.DisplayFail();
