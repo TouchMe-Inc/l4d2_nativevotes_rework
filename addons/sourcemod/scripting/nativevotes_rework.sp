@@ -16,6 +16,8 @@ public Plugin myinfo = {
 }
 
 
+#define VOTE_END_OFFSET 5.0
+
 // Kick
 #define L4D_VOTE_KICK_START     "#L4D_vote_kick_player"
 #define L4D_VOTE_KICK_PASSED    "#L4D_vote_passed_kick_player"
@@ -272,7 +274,7 @@ public int Native_SetDetails(Handle hPlugin, int iParams)
 
 // native bool NativeVotes_IsVoteInProgress();
 public int Native_IsVoteInProgress(Handle hPlugin, int iParams) {
-    return IsVoteAlreadyInProgress() || IsVoteControllerActive() || (GetEngineTime() - g_fLastTime <= 2.0);
+    return IsVoteAlreadyInProgress() || IsVoteControllerActive() || (GetEngineTime() - g_fLastTime <= VOTE_END_OFFSET);
 }
 
 // native NativeVotes_Cancel();
