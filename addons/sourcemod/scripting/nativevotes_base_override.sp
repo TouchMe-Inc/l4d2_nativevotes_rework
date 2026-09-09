@@ -89,7 +89,7 @@ public void OnPluginStart()
     char szCvarName[64];
     for (int i = 0; i < view_as<int>(VAT_Count); i++)
     {
-        FormatEx(szCvarName, sizeof szCvarName, "sm_nvr_%s", g_szAccessFlag);
+        FormatEx(szCvarName, sizeof szCvarName, "sm_nvr_%s", g_szAccessFlag[i]);
         g_cvVoteAccessFlag[i] = CreateConVar(szCvarName, "", g_szAccessCvarDescs[i]);
     }
 
