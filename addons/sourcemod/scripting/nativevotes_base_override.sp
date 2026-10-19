@@ -12,14 +12,17 @@ public Plugin myinfo =
     name        = "[NVR] BaseOverride",
     author      = "TouchMe",
     description = "N/a",
-    version     = "build0002",
+    version     = "build0004",
     url         = "https://github.com/TouchMe-Inc/l4d2_nativevotes_rework"
 }
 
 
+#define TEAM_SPECTATOR 1
+
 #define VOTE_SHOWTIME 15
 
 #define NativeVotesType_AlltalkAuto -1
+
 
 enum VoteAccessType
 {
@@ -56,6 +59,7 @@ char g_szAccessCvarDescs[VAT_Count][] = {
 
 ConVar g_cvAlltalk = null;
 ConVar g_cvVoteAccessFlag[VAT_Count];
+ConVar g_cvSpectatorIgnore = null;
 
 StringMap g_smVoteType = null;
 
@@ -81,7 +85,7 @@ public APLRes AskPluginLoad2(Handle myself, bool bLate, char[] sErr, int iErrLen
 
 public void OnPluginStart()
 {
-    LoadTranslations("fix_votes.phrases");
+    LoadTranslations("nativevotes_base_override.phrases");
 
     g_smVoteType = new StringMap();
     FillVoteType(g_smVoteType);
@@ -92,6 +96,8 @@ public void OnPluginStart()
         FormatEx(szCvarName, sizeof szCvarName, "sm_nvr_%s", g_szAccessFlag[i]);
         g_cvVoteAccessFlag[i] = CreateConVar(szCvarName, "", g_szAccessCvarDescs[i]);
     }
+
+    g_cvSpectatorIgnore = CreateConVar("sm_nvr_spectator_ignore", "1");
 
     g_cvAlltalk = FindConVar("sv_alltalk");
 
@@ -128,6 +134,14 @@ public Action Listener_CallVote(int iClient, const char[] command, int argc)
         return Plugin_Continue;
     }
 
+    int iClientTeam = GetClientTeam(iClient);
+
+    if (g_cvSpectatorIgnore.BoolValue && iClientTeam == TEAM_SPECTATOR)
+    {
+        CPrintToChat(iClient, "%T%T", "TAG", iClient, "SPECTATOR_IGNORE", iClient);
+        return Plugin_Handled;
+    }
+
     if (IsVoteAlltalk(nvt)) {
         nvt = g_cvAlltalk.BoolValue ? NativeVotesType_AlltalkOff : NativeVotesType_AlltalkOn;
     }
@@ -147,7 +161,7 @@ public Action Listener_CallVote(int iClient, const char[] command, int argc)
     if (!iTarget
     || iTarget == iClient /*< Block self-kick */
     || IsFakeClient(iTarget) /*< Block bot kick */
-    || GetClientTeam(iTarget) != GetClientTeam(iClient) /*< Block kickvotes not aimed at players in the same team */
+    || GetClientTeam(iTarget) != iClientTeam /*< Block kickvotes not aimed at players in the same team */
     ) {
         return Plugin_Handled;
     }
@@ -164,7 +178,7 @@ public Action Listener_CallVote(int iClient, const char[] command, int argc)
     NativeVote nv = new NativeVote(HandleVoteKick, NativeVotesType_Kick);
     nv.Initiator = iClient;
     nv.Target = iTarget;
-    nv.Team = GetClientTeam(iClient);
+    nv.Team = iClientTeam;
 
     int iTotalPlayers;
     int[] iPlayers = new int[MaxClients];
@@ -215,7 +229,7 @@ public Action HandleVoteKick(NativeVote nv, VoteAction va, int iParam1, int iPar
 
             nv.DisplayPass();
             if (nv.Target > 0) {
-                KickClient(nv.Target, "Kicked from the team");
+                Kick(nv.Target);
             }
         }
 
@@ -256,6 +270,31 @@ VoteAccessType GetAccessTypeForVote(NativeVotesType type)
     }
 
     return VAT_Count;
+}
+
+void Kick(int iClient)
+{
+    char szReason[128];
+    FormatEx(szReason, sizeof szReason, "%T", "KICK_REASON", iClient);
+
+    char szAuthId[MAX_AUTHID_LENGTH];
+    if (GetClientAuthId(iClient, AuthId_Engine, szAuthId, sizeof szAuthId)
+        && BanIdentity(szAuthId, 1, BANFLAG_AUTHID, szReason))
+    {
+        KickClient(iClient, "%s", szReason);
+    }
+    else
+    {
+        // Kick before addip, as BanClient does, so the client sees our message.
+        KickClientEx(iClient, "%s", szReason);
+
+        char szClientIp[32];
+        GetClientIP(iClient, szClientIp, sizeof szClientIp);
+
+        if (szClientIp[0] != '\0') {
+            BanIdentity(szClientIp, 1, BANFLAG_IP, szReason);
+        }
+    }
 }
 
 void StringToLower(const char[] input, char[] output, int maxlen)

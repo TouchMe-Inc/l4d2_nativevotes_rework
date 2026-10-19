@@ -8,7 +8,7 @@
     "VOTE_COOLDOWN"
     {
         "#format"		"{1:d}"
-        "en" "Vote unavailable. Retry in {olive}{1}{default} sec"
+        "en"            "Vote unavailable. Retry in {olive}{1}{default} sec"
     }
 
     "VOTE_IN_PROGRESS"
@@ -26,4 +26,14 @@
 		"#format"		"{1:N}"
 		"en"			"{olive}{1}{default} tried to kick you"
 	}
+
+    "SPECTATOR_IGNORE"
+    {
+        "en"			"Spectators cannot start a vote"
+    }
+
+    "KICK_REASON"
+    {
+       "en"			"Kicked from the team" 
+    }
 }
